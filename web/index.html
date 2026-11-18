@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Outlook Fix Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%235b5fc7'/%3E%3Ctext x='16' y='23' font-size='20' text-anchor='middle' fill='white' font-family='Arial' font-weight='700'%3EO%3C/text%3E%3C/svg%3E">
+<style>
+:root{
+  --purple:#5b5fc7; --purple-d:#464eb8; --purple-l:#e8ebfa; --ink:#242424; --muted:#616161;
+  --line:#e0e0e0; --bg:#f0f0f5; --card:#fff; --green:#107c10; --green-l:#dff6dd;
+  --red:#c4314b; --red-l:#fde7e9; --amber:#c19c00; --amber-l:#fff4ce; --blue:#0f6cbd;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+button{font:inherit;cursor:pointer}
+.app{display:flex;flex-direction:column;height:100vh;min-height:620px}
+
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 16px;background:var(--purple-d);color:#fff}
+.brand{font-weight:600;font-size:15px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.brand small{font-weight:400;opacity:.8;font-size:12px}
+.logo{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;background:#fff;color:var(--purple-d)}
+.controls{display:flex;align-items:center;gap:14px;font-size:13px;flex-wrap:wrap}
+.controls label{display:flex;align-items:center;gap:6px}
+.controls select{font:inherit;border-radius:4px;border:0;padding:2px 4px}
+.badge{background:rgba(255,255,255,.18);padding:2px 8px;border-radius:10px;font-size:12px}
+#restart{background:#fff;color:var(--purple-d);border:0;border-radius:4px;padding:5px 10px;font-weight:600}
+
+.cols{flex:1;min-height:0;display:grid;grid-template-columns:380px minmax(0,1fr) 310px;gap:12px;padding:12px}
+.panel{background:var(--card);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.12);min-height:0;display:flex;flex-direction:column;overflow:hidden}
+
+/* chat */
+.chat-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--purple);color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px;flex:none}
+.chat-head b{display:block}
+.chat-head span{font-size:12px;color:var(--green)}
+.scenarios{padding:8px 12px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.scenarios button{border:1px solid var(--purple);background:#fff;color:var(--purple-d);border-radius:14px;padding:3px 10px;font-size:12px}
+.scenarios button:hover{background:var(--purple-l)}
+.msgs{flex:1;overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:10px;background:#faf9f8}
+.row{display:flex;gap:8px;max-width:100%}
+.row.user{justify-content:flex-end}
+.row .avatar{width:28px;height:28px;font-size:11px}
+.bubble{padding:8px 12px;border-radius:8px;max-width:84%;word-wrap:break-word;box-shadow:0 1px 1px rgba(0,0,0,.08);animation:pop .25s ease}
+.agent .bubble{background:#fff}
+.user .bubble{background:var(--purple-l)}
+.bubble.decision{background:var(--purple);color:#fff;font-weight:600}
+.bubble.warning{background:var(--amber-l);border-left:4px solid var(--amber)}
+.bubble.step{background:#fff;border-left:4px solid var(--purple)}
+.bubble.step .n{display:block;font-size:11px;font-weight:700;color:var(--purple-d);text-transform:uppercase;letter-spacing:.04em}
+.bubble.note{color:var(--muted);font-style:italic}
+.bubble.resolved{background:var(--green-l);border-left:4px solid var(--green)}
+.bubble.resolved-no{background:var(--red-l);border-left:4px solid var(--red)}
+.bubble.system{background:var(--red-l);color:var(--red)}
+.typing{display:inline-flex;gap:4px;padding:10px 12px;background:#fff;border-radius:8px}
+.typing i{width:6px;height:6px;border-radius:50%;background:#999;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+.quick{display:flex;flex-wrap:wrap;gap:6px;padding:6px 12px;min-height:6px;background:#faf9f8}
+.quick button{border:1px solid var(--purple);background:#fff;color:var(--purple-d);border-radius:16px;padding:5px 14px;font-weight:600}
+.quick button:hover{background:var(--purple);color:#fff}
+.composer{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:#fff}
+.composer input{flex:1;border:1px solid #c8c8c8;border-radius:6px;padding:8px 10px;font:inherit}
+.composer input:focus{outline:2px solid var(--purple);border-color:transparent}
+.composer button{background:var(--purple);color:#fff;border:0;border-radius:6px;padding:0 16px;font-weight:600}
+.composer button:disabled{opacity:.5}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* PC */
+.pc-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+.pc-head small{color:var(--muted);font-weight:400}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:4px 12px;border-radius:14px;font-weight:600;background:#eee;color:#444;transition:all .4s}
+.pill .led{width:10px;height:10px;border-radius:50%;background:#9a9a9a;transition:all .4s}
+.pill.red{background:var(--red-l);color:var(--red)}.pill.red .led{background:var(--red);box-shadow:0 0 8px var(--red)}
+.pill.amber{background:var(--amber-l);color:#7a6200}.pill.amber .led{background:var(--amber);box-shadow:0 0 8px var(--amber);animation:blink 1s infinite}
+.pill.green{background:var(--green-l);color:var(--green)}.pill.green .led{background:var(--green);box-shadow:0 0 8px var(--green)}
+.pc-wrap{flex:1;min-height:0;padding:12px;display:flex}
+.desktop{position:relative;flex:1;min-height:380px;border-radius:8px;overflow:hidden;border:6px solid #1f1f23;
+  background:radial-gradient(1200px 600px at 20% 10%,#7cc4f5 0,#2f7fd0 45%,#17428c 100%)}
+.icons{position:absolute;left:12px;top:12px;display:flex;flex-direction:column;gap:14px;color:#fff;font-size:11px;text-align:center;text-shadow:0 1px 2px #000}
+.icons div{width:62px}.icons span{display:block;font-size:26px}
+.caption{position:absolute;left:50%;bottom:54px;transform:translateX(-50%);max-width:88%;background:rgba(20,20,25,.86);color:#fff;
+  padding:7px 16px;border-radius:20px;font-size:13px;text-align:center;transition:opacity .3s;z-index:8}
+.taskbar{position:absolute;left:0;right:0;bottom:0;height:42px;background:rgba(240,243,250,.88);backdrop-filter:blur(8px);
+  display:flex;align-items:center;justify-content:center;gap:6px;z-index:9;border-top:1px solid rgba(0,0,0,.1)}
+.taskbar .ti{width:34px;height:34px;display:grid;place-items:center;border-radius:6px;font-size:18px;position:relative}
+.taskbar .ti.run::after{content:"";position:absolute;bottom:2px;left:11px;right:11px;height:3px;border-radius:2px;background:var(--blue)}
+.taskbar .ti.ol{background:var(--blue);color:#fff;font-weight:700;font-size:15px}
+.tray{position:absolute;right:10px;font-size:12px;color:#222;text-align:right;line-height:1.1}
+.stamp{position:absolute;inset:0;display:grid;place-items:center;z-index:12;pointer-events:none;opacity:0;transition:opacity .5s}
+.stamp.show{opacity:1}
+.stamp div{background:rgba(16,124,16,.94);color:#fff;font-size:26px;font-weight:700;padding:14px 30px;border-radius:12px;transform:rotate(-4deg);box-shadow:0 8px 30px rgba(0,0,0,.4)}
+
+/* outlook window */
+.ow{position:absolute;left:12%;top:4%;width:60%;height:76%;background:#fff;border-radius:8px;box-shadow:0 12px 34px rgba(0,0,0,.45);
+  overflow:hidden;display:flex;flex-direction:column;transition:opacity .35s,transform .35s;z-index:3}
+.ow.hidden{opacity:0;transform:scale(.95);pointer-events:none}
+.tb{display:flex;align-items:center;gap:8px;background:#0f548c;color:#fff;padding:5px 10px;font-size:12px;flex:none}
+.tb .ctl{margin-left:auto;letter-spacing:8px;opacity:.8}
+.tb.err{background:#7a1f2e}
+.ow-body{flex:1;display:flex;min-height:0;position:relative}
+.folders{width:27%;background:#f3f2f1;padding:8px;font-size:12px;border-right:1px solid var(--line)}
+.folders div{padding:3px 6px;border-radius:3px}.folders .sel{background:#cfe4fa;font-weight:600}
+.list{flex:1;min-width:0;display:flex;flex-direction:column}
+.search{margin:8px;padding:5px 10px;border:1px solid #bbb;border-radius:4px;font-size:12px;color:#444;background:#fafafa;display:flex;gap:6px}
+.mail{padding:7px 12px;border-bottom:1px solid #eee;font-size:12px;display:flex;justify-content:space-between;gap:8px}
+.mail b{display:block;font-size:12px}.mail span{color:var(--muted)}.mail time{color:var(--muted);font-size:11px;white-space:nowrap}
+.mail.hit{background:#fff8d6}
+.empty{margin:auto;color:var(--muted);text-align:center;padding:20px;font-size:13px}
+.status{flex:none;font-size:11px;padding:3px 10px;background:#f3f2f1;border-top:1px solid var(--line);display:flex;justify-content:space-between}
+.status .s-ok{color:var(--green);font-weight:600}.status .s-bad{color:var(--red);font-weight:600}.status .s-wait{color:#7a6200;font-weight:600}
+.dim{filter:grayscale(1) opacity(.55)}
+.center{position:absolute;inset:0;display:grid;place-items:center;background:rgba(255,255,255,.55)}
+.dialog{background:#fff;border:1px solid #bbb;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.3);padding:16px 20px;max-width:78%;text-align:left}
+.dialog h5{margin:0 0 8px;font-size:13px}
+.dialog .row2{display:flex;gap:12px;align-items:flex-start}
+.big{font-size:30px;line-height:1}
+.dialog button{margin-top:12px;float:right;padding:4px 18px;border:1px solid #888;background:#f3f3f3;border-radius:3px}
+.spinner{width:34px;height:34px;border:4px solid #cfd8e3;border-top-color:var(--blue);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.splash{background:linear-gradient(#fff,#e9f1fb);display:grid;place-items:center;text-align:center;flex:1}
+.splash .oicon{width:64px;height:64px;border-radius:12px;background:var(--blue);color:#fff;font-size:38px;font-weight:700;display:grid;place-items:center;margin:0 auto 12px}
+.dots::after{content:"";animation:dots 1.4s steps(4) infinite}
+@keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
+
+/* tool window */
+.tw{position:absolute;right:3%;top:12%;width:42%;min-width:250px;background:#fff;border-radius:8px;box-shadow:0 14px 40px rgba(0,0,0,.55);
+  z-index:6;opacity:0;transform:translateY(14px) scale(.97);transition:opacity .3s,transform .3s;pointer-events:none;overflow:hidden}
+.tw.show{opacity:1;transform:none}
+.tw .tb{background:#f3f3f3;color:#222;border-bottom:1px solid #ddd}
+.tw .tb .ctl{color:#444}
+.tw-body{padding:10px 12px;font-size:12px}
+.hint{color:var(--muted);margin-bottom:8px;font-size:12px}
+.tw ul{list-style:none;margin:0 0 10px;padding:0;border:1px solid #ddd;border-radius:4px;max-height:210px;overflow:hidden}
+.tw li{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee;transition:background .4s,opacity .6s}
+.tw li:last-child{border-bottom:0}
+.tw li .ico{width:16px;text-align:center;flex:none}
+.tw li .tx{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tw li em{font-style:normal;font-size:10px;padding:1px 7px;border-radius:9px;background:#eee;color:#555;white-space:nowrap}
+.tw li.bad{background:#fff3f4;color:var(--red)}.tw li.bad em{background:var(--red-l);color:var(--red)}
+.tw li.new{background:var(--green-l)}.tw li.new em{background:#fff;color:var(--green)}
+.tw li.selected{background:#dbe9fb;font-weight:600}
+.tw li.removed{background:#f4f4f4}.tw li.removed .tx{text-decoration:line-through;opacity:.5}
+.tw li.on .ico{color:var(--green)}.tw li.off{color:#777}
+.tw li.anim.new{animation:slidein .7s ease}
+.tw li.anim.removed{animation:flash .8s ease}
+.tw li.anim.bad{animation:flash .8s ease}
+.tw li.anim.off,.tw li.anim.on{animation:flash .8s ease}
+.tw li.hl{outline:2px dashed var(--purple);outline-offset:-2px}
+@keyframes slidein{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:none}}
+@keyframes flash{0%{background:#ffe48a}100%{}}
+.btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.wb{border:1px solid #adadad;background:#f4f4f4;border-radius:3px;padding:4px 12px;font-size:12px}
+.wb.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+.wb.hl{outline:2px dashed var(--purple);outline-offset:2px}
+.wb.clicked,.tw li.clicked{transform:scale(.94);filter:brightness(.85)}
+.prog{margin:0 0 10px}.prog .bar{height:8px;border-radius:5px;background:#e3e3e3;overflow:hidden}
+.prog .bar span{display:block;height:100%;width:0;background:var(--green);transition:width 2.4s ease}
+.prog small{color:var(--muted)}
+#cursor{position:absolute;left:0;top:0;width:22px;height:22px;z-index:20;pointer-events:none;opacity:0;
+  transition:transform .9s cubic-bezier(.3,.7,.3,1),opacity .3s;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+
+/* brain */
+.brain-head{padding:10px 14px;border-bottom:1px solid var(--line);font-weight:600}
+.brain-head small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+#brain{flex:1;overflow-y:auto;padding:12px 14px;font-size:12.5px}
+.b-sec{margin-bottom:14px}
+.b-sec h4{margin:0 0 6px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--purple-d)}
+.b-q{background:var(--purple-l);padding:6px 10px;border-radius:6px;font-style:italic;margin-bottom:6px}
+.cand{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;transition:all .3s}
+.cand.active{border-color:var(--purple);box-shadow:0 0 0 2px var(--purple-l)}
+.cand.decided{border-color:var(--green);background:#f3fbf2}
+.cand .ct{font-weight:600;margin-bottom:4px}
+.cand .bar{height:6px;border-radius:4px;background:#eee;overflow:hidden}
+.cand .bar span{display:block;height:100%;background:var(--purple);transition:width .5s}
+.cand small{color:var(--muted)}
+.cand ul{margin:6px 0 0;padding:0;list-style:none}
+.cand li{display:flex;gap:6px;padding:2px 0}
+.cand li i{font-style:normal;width:16px;flex:none;text-align:center;font-weight:700}
+.ans-yes{color:var(--green)}.ans-no{color:var(--red)}.ans-skip{color:var(--muted)}.ans-null{color:#bbb}
+.explain{color:var(--muted);line-height:1.5}
+.explain ol{padding-left:18px;margin:6px 0}
+
+@media (max-width:1180px){
+  .app{height:auto}.cols{grid-template-columns:1fr}.panel.chat{height:560px}.desktop{min-height:420px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="logo">⚙</span> Outlook Fix Assistant
+      <small>live demo · simulated PC · nothing real is touched</small></div>
+    <div class="controls">
+      <label><input type="checkbox" id="auto" checked> Auto-play</label>
+      <label>Speed <select id="speed"><option value="1.6">Slow</option><option value="1" selected>Normal</option><option value="0.6">Fast</option></select></label>
+      <span class="badge" id="mode">search: …</span>
+      <button id="restart" type="button">↺ Start over</button>
+    </div>
+  </header>
+
+  <main class="cols">
+    <section class="panel chat" aria-label="Chat with the helpdesk assistant">
+      <div class="chat-head"><div class="avatar">IT</div><div><b>IT Helpdesk Assistant</b><span>● Online</span></div></div>
+      <div class="scenarios" id="scenarios"><span>Try a problem:</span></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="quick" id="quick"></div>
+      <form class="composer" id="form" autocomplete="off">
+        <input id="input" placeholder="Describe what's happening on your PC…" aria-label="Message">
+        <button id="send" type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="panel pc" aria-label="Simulated PC">
+      <div class="pc-head">
+        <b>🖥 USER-PC01 <small>simulated Windows PC</small></b>
+        <span class="pill" id="pill"><i class="led"></i><span id="pilltext">Waiting for a problem report</span></span>
+      </div>
+      <div class="pc-wrap">
+        <div class="desktop" id="desktop">
+          <div class="icons"><div><span>🗑</span>Recycle Bin</div><div><span>🌐</span>Edge</div><div><span>📁</span>Documents</div></div>
+          <div class="ow hidden" id="outlook"></div>
+          <div class="tw" id="tool"></div>
+          <svg id="cursor" viewBox="0 0 24 24"><path d="M3 2l7 19 3-8 8-3z" fill="#fff" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/></svg>
+          <div class="caption" id="caption">Describe a problem in the chat and watch the agent fix it here.</div>
+          <div class="stamp" id="stamp"><div>✔ Ticket resolved</div></div>
+          <div class="taskbar">
+            <div class="ti">⊞</div><div class="ti">🔍</div>
+            <div class="ti ol" id="tbOutlook">O</div><div class="ti">🌐</div><div class="ti">📁</div>
+            <div class="tray"><span id="wifi">📶</span> <span id="clock"></span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="panel brain" aria-label="How the agent decided">
+      <div class="brain-head">How the agent decided<small>the retrieval (RAG) part, live</small></div>
+      <div id="brain"></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+const $ = (s) => document.querySelector(s);
+const FAST = new URLSearchParams(location.search).has("fast");
+const sid = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
+let scenes = {};
+let busy = false, runId = 0, lastState = "problem";
+let prevTool = null;
+
+const SCENARIOS = [
+  ["Can't open Outlook", "A user can't open Outlook after the cloud migration"],
+  ["Freezing / crashing", "Outlook keeps freezing and crashing when it starts"],
+  ["Password loop", "Outlook keeps asking for my password"],
+  ["Disconnected", "Outlook says disconnected and I'm not getting new mail"],
+  ["Search broken", "My emails are missing when I search"]
+];
+
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const md = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+const mult = () => (FAST ? 0.02 : 1) * parseFloat($("#speed").value || "1");
+const wait = (ms) => new Promise((r) => setTimeout(r, ms * mult()));
+
+/* ---------- chat ---------- */
+function scroll() { const m = $("#msgs"); m.scrollTop = m.scrollHeight; }
+function addUser(text) {
+  const row = document.createElement("div"); row.className = "row user";
+  row.innerHTML = '<div class="bubble">' + md(text) + "</div>";
+  $("#msgs").appendChild(row); scroll();
+}
+function addAgent(m) {
+  const row = document.createElement("div"); row.className = "row agent";
+  const kind = m.kind || "text";
+  const cls = ["decision","warning","step","note","resolved","resolved-no","system"].includes(kind) ? kind : "";
+  let inner = md(m.text);
+  if (kind === "step") inner = '<span class="n">Step ' + m.step + " of " + m.total + "</span>" + inner;
+  if (kind === "warning") inner = "<b>Before you start</b><br>" + inner;
+  row.innerHTML = '<div class="avatar">IT</div><div class="bubble ' + cls + '">' + inner + "</div>";
+  $("#msgs").appendChild(row); scroll();
+}
+async function typing() {
+  const row = document.createElement("div"); row.className = "row agent";
+  row.innerHTML = '<div class="avatar">IT</div><div class="typing"><i></i><i></i><i></i></div>';
+  $("#msgs").appendChild(row); scroll();
+  await wait(650);
+  row.remove();
+}
+function setQuick(labels) {
+  const q = $("#quick"); q.innerHTML = "";
+  (labels || []).forEach((l) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = l;
+    b.addEventListener("click", () => send(l));
+    q.appendChild(b);
+  });
+}
+
+/* ---------- API ---------- */
+async function api(path, body) {
+  const res = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify(Object.assign({ sid }, body)) });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+
+async function send(text, display) {
+  text = (text || "").trim();
+  if (!text || busy) return;
+  busy = true; setBusy(true); runId++;
+  const my = runId;
+  setQuick([]);
+  addUser(display || text);
+  $("#input").value = "";
+  try {
+    const data = await api("/api/chat", { text });
+    await handleReply(data, my);
+  } catch (e) {
+    addAgent({ text: "I lost the connection to the helpdesk server. Is webapp.py still running?", kind: "system" });
+  }
+  busy = false; setBusy(false);
+}
+function setBusy(b) { $("#send").disabled = b; $("#input").disabled = b; if (!b) $("#input").focus(); }
+
+async function handleReply(data, my) {
+  lastState = data.state;
+  updateBrain(data.brain);
+  for (const m of data.messages) {
+    await typing();
+    if (my !== runId) return;
+    addAgent(m);
+    if (m.kind === "resolved") $("#stamp").classList.add("show");
+  }
+  await applyScene(data.scene, data.messages, my);
+  if (my !== runId) return;
+  if (data.state === "fixing" && $("#auto").checked) {
+    setQuick([]);
+    await wait(1100);
+    if (my !== runId) return;
+    if ($("#auto").checked) {
+      busy = false;
+      await send("done", "Done ✓");
+      return;
+    }
+  }
+  setQuick(data.quick);
+}
+
+/* ---------- PC simulation ---------- */
+const MAILS = [["Alex Rivera","Q4 planning notes","9:42 AM"],["IT Service Desk","Your ticket was updated","9:15 AM"],
+  ["Maria Chen","Lunch on Friday?","8:58 AM"],["Payroll","Your payslip is ready","Tue"],["Weekly Digest","Five things to read","Mon"]];
+const HITS = [["Accounts","Invoice 4821 – November","Tue"],["Accounts","Invoice 4790 – October","Oct 28"],["Supplier Co","Invoice attached","Oct 14"]];
+
+function titlebar(text, err) {
+  return '<div class="tb' + (err ? " err" : "") + '"><span>✉</span><span>' + esc(text) + '</span><span class="ctl">–☐✕</span></div>';
+}
+function inbox(o) {
+  const mails = (o.mails || MAILS).map((m) =>
+    '<div class="mail' + (o.hit ? " hit" : "") + '"><div><b>' + esc(m[0]) + "</b><span>" + esc(m[1]) + "</span></div><time>" + esc(m[2]) + "</time></div>").join("");
+  const listBody = o.empty ? '<div class="empty">We didn\'t find anything to show here.</div>' : mails;
+  const search = '<div class="search">🔍 <span>' + esc(o.search || "Search") + "</span></div>";
+  const status = '<div class="status"><span class="' + o.statusCls + '">' + esc(o.status) + "</span><span>user@contoso.com</span></div>";
+  return titlebar(o.title) +
+    '<div class="ow-body' + (o.dim ? " dim" : "") + '"><div class="folders"><div class="sel">Inbox</div><div>Sent Items</div><div>Drafts</div><div>Deleted Items</div></div>' +
+    '<div class="list">' + search + listBody + "</div>" + (o.overlay || "") + "</div>" + status;
+}
+const GOOD = "Inbox - user@contoso.com - Outlook";
+const OUTLOOK = {
+  closed: () => "",
+  broken: () => titlebar("Microsoft Outlook", true) +
+    '<div class="ow-body" style="background:#ececec"><div class="center" style="background:transparent"><div class="dialog"><div class="row2"><div class="big">❌</div><div><h5>Microsoft Outlook</h5>' +
+    "Cannot start Microsoft Outlook. Cannot open the Outlook window.<br>The set of folders cannot be opened.<br><small>The profile may be damaged.</small></div></div><button>OK</button></div></div></div>",
+  loading: () => titlebar("Outlook") + '<div class="splash"><div><div class="oicon">O</div><div>Loading profile<span class="dots"></span></div><br><div class="spinner" style="margin:auto"></div></div></div>',
+  freezing: () => inbox({ title: GOOD + " (Not Responding)", status: "Not responding", statusCls: "s-bad", dim: true,
+    overlay: '<div class="center"><div class="spinner"></div></div>' }),
+  password: () => inbox({ title: GOOD, status: "Need password", statusCls: "s-bad", dim: true,
+    overlay: '<div class="center"><div class="dialog"><div class="row2"><div class="big">🔒</div><div><h5>Windows Security</h5>Enter password for user@contoso.com<br>' +
+    '<input type="password" value="••••••••" disabled style="margin-top:6px;width:100%"><br><small style="color:#c4314b">The prompt appeared again…</small></div></div><button>OK</button></div></div>' }),
+  ok: () => inbox({ title: GOOD, status: "Connected to: Microsoft Exchange", statusCls: "s-ok" }),
+  safe: () => inbox({ title: GOOD + " (Safe Mode)", status: "Connected to: Microsoft Exchange · Safe Mode, add-ins off", statusCls: "s-ok" }),
+  disconnected: () => inbox({ title: GOOD, status: "Disconnected", statusCls: "s-bad", dim: true }),
+  connecting: () => inbox({ title: GOOD, status: "Trying to connect…", statusCls: "s-wait" }),
+  nosearch: () => inbox({ title: GOOD, status: "Connected to: Microsoft Exchange", statusCls: "s-ok", search: "invoice", empty: true }),
+  search_ok: () => inbox({ title: GOOD, status: "Connected to: Microsoft Exchange", statusCls: "s-ok", search: "invoice", mails: HITS, hit: true })
+};
+const PILL = {
+  idle: ["", "Waiting for a problem report"],
+  closed: ["amber", "Outlook is closed"], loading: ["amber", "Outlook is starting…"], connecting: ["amber", "Reconnecting…"],
+  safe: ["amber", "Safe Mode: working, add-ins off"],
+  ok: ["green", "Outlook is working"], search_ok: ["green", "Outlook is working"],
+  broken: ["red", "Outlook won't start"], freezing: ["red", "Outlook is freezing"], password: ["red", "Password prompt loop"],
+  disconnected: ["red", "Outlook is disconnected"], nosearch: ["red", "Search returns nothing"]
+};
+function setOutlook(state) {
+  const el = $("#outlook");
+  el.innerHTML = (OUTLOOK[state] || OUTLOOK.ok)();
+  el.classList.toggle("hidden", state === "closed" || state === "idle");
+  const p = PILL[state] || PILL.idle;
+  $("#pill").className = "pill " + p[0];
+  $("#pilltext").textContent = p[1];
+  $("#tbOutlook").classList.toggle("run", !(state === "closed" || state === "idle"));
+  $("#wifi").textContent = state === "disconnected" ? "📵" : "📶";
+}
+function setCaption(t) { const c = $("#caption"); c.style.opacity = t ? 1 : 0; c.textContent = t ? "▶ " + t : ""; }
+
+function iconFor(it) {
+  return { on: "☑", off: "☐", bad: "⚠", new: "＋", removed: "✖", selected: "●" }[it.state] || "▫";
+}
+function renderTool(w) {
+  const tool = $("#tool");
+  if (!w) { tool.classList.remove("show"); prevTool = null; return; }
+  const prev = {};
+  if (prevTool && prevTool.title === w.title) (prevTool.items || []).forEach((i) => { prev[i.text] = i.state || ""; });
+  const items = (w.items || []).map((it) => {
+    const changed = prev[it.text] !== (it.state || "");
+    return '<li class="' + [it.state || "", it.hl ? "hl" : "", changed ? "anim" : ""].join(" ") + '"><span class="ico">' + iconFor(it) + '</span><span class="tx">' + esc(it.text) + "</span>" +
+      (it.tag ? "<em>" + esc(it.tag) + "</em>" : "") + "</li>";
+  }).join("");
+  const prog = w.progress ? '<div class="prog"><div class="bar"><span data-to="' + (w.progress.value || 100) + '"></span></div><small>' + esc(w.progress.label || "") + "</small></div>" : "";
+  const btns = (w.buttons || []).map((b) => '<button type="button" class="wb ' + (b.primary ? "pri " : "") + (b.hl ? "hl" : "") + '">' + esc(b.text) + "</button>").join("");
+  tool.innerHTML = '<div class="tb"><span>' + (w.icon || "🗔") + "</span><span>" + esc(w.title) + '</span><span class="ctl">–☐✕</span></div><div class="tw-body">' +
+    (w.hint ? '<div class="hint">' + esc(w.hint) + "</div>" : "") + (items ? "<ul>" + items + "</ul>" : "") + prog + '<div class="btns">' + btns + "</div></div>";
+  tool.classList.add("show");
+  prevTool = w;
+  const bar = tool.querySelector(".prog .bar span");
+  if (bar) setTimeout(() => { bar.style.width = bar.dataset.to + "%"; }, 60);
+}
+async function moveCursorTo(el, my) {
+  const cur = $("#cursor"), d = $("#desktop").getBoundingClientRect(), r = el.getBoundingClientRect();
+  const x = r.left - d.left + Math.min(r.width * 0.6, r.width - 4), y = r.top - d.top + r.height * 0.55;
+  cur.style.opacity = 1;
+  cur.style.transform = "translate(" + Math.max(0, x) + "px," + Math.max(0, y) + "px)";
+  await wait(1000);
+  if (my !== runId) return false;
+  el.classList.add("clicked");
+  await wait(350);
+  el.classList.remove("clicked");
+  return true;
+}
+function stepFallback(text) {
+  return { caption: text, outlook: null, window: { title: "Working on it", icon: "⚙", items: [{ text: text, state: "selected" }], buttons: [{ text: "OK", hl: true }] } };
+}
+
+async function applyScene(scene, messages, my) {
+  if (!scene) { setOutlook("idle"); renderTool(null); setCaption("Describe a problem in the chat and watch the agent fix it here."); return; }
+  const sc = scenes[scene.file];
+  if (scene.step < 0) {
+    $("#stamp").classList.remove("show");
+    const ini = (sc && sc.initial) || { outlook: "broken", caption: "User reports a problem with Outlook" };
+    setOutlook(ini.outlook); renderTool(null); setCaption(ini.caption); $("#cursor").style.opacity = 0;
+    return;
+  }
+  const stepMsg = (messages || []).find((m) => m.kind === "step");
+  const st = (sc && sc.steps && sc.steps[scene.step]) || stepFallback(stepMsg ? stepMsg.text : "Working…");
+  setCaption(st.caption);
+  renderTool(st.window);
+  await wait(500);
+  if (my !== runId) return;
+  const hl = $("#tool.show .hl");
+  if (hl && st.window) { const ok = await moveCursorTo(hl, my); if (!ok) return; }
+  if (st.outlook) setOutlook(st.outlook);
+  $("#cursor").style.opacity = 0;
+  if (st.outlook_after) {
+    await wait(st.after_ms || 2200);
+    if (my !== runId) return;
+    setOutlook(st.outlook_after);
+  } else {
+    await wait(700);
+  }
+}
+
+/* ---------- brain panel ---------- */
+const BRAIN_IDLE = '<div class="explain"><b>Nothing searched yet.</b><br>When you describe a problem, I will:<ol><li>turn your words and each fix note into vectors and find the closest notes</li><li>ask questions to tell the candidates apart</li><li>pick the best note and walk through its steps</li></ol>You will see each of those here.</div>';
+function updateBrain(b) {
+  const el = $("#brain");
+  if (!b || !b.candidates || !b.candidates.length) { el.innerHTML = BRAIN_IDLE; return; }
+  $("#mode").textContent = "search: " + b.mode;
+  const mark = { yes: ["✓", "yes"], no: ["✗", "no"], skip: ["?", "skip"] };
+  const cands = b.candidates.map((c, i) => {
+    const qs = c.questions.map((q) => { const m = mark[q.answer] || ["○", "null"];
+      return '<li><i class="ans-' + m[1] + '">' + m[0] + "</i><span>" + esc(q.text) + "</span></li>"; }).join("");
+    const cls = (b.decided === c.file ? "decided" : (b.active === i ? "active" : ""));
+    return '<div class="cand ' + cls + '"><div class="ct">' + esc(c.title) + '</div><div class="bar"><span style="width:' + Math.min(100, c.score * 200) + '%"></span></div>' +
+      "<small>similarity " + Math.round(c.score * 100) + "%" + (c.adjusted != null ? " → after your answers " + Math.round(c.adjusted * 100) + "%" : "") + "</small><ul>" + qs + "</ul></div>";
+  }).join("");
+  const decided = b.candidates.find((c) => c.file === b.decided);
+  el.innerHTML = '<div class="b-sec"><h4>1 · Search the notes</h4><div class="b-q">“' + esc(b.query) + "”</div>" +
+    '<div class="explain">Your words and every note become vectors; the closest notes are the candidates.</div></div>' +
+    '<div class="b-sec"><h4>2 · Ask questions</h4>' + cands + "</div>" +
+    '<div class="b-sec"><h4>3 · Decision</h4><div class="explain">' + (decided ? "✅ <b>" + esc(decided.title) + "</b><br>Now walking through its steps, one at a time." : "Still deciding…") + "</div></div>";
+}
+
+/* ---------- boot ---------- */
+function clock() { const d = new Date(); $("#clock").textContent = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
+async function start() {
+  runId++; const my = runId;
+  $("#msgs").innerHTML = ""; setQuick([]); $("#stamp").classList.remove("show");
+  prevTool = null; renderTool(null); $("#cursor").style.opacity = 0;
+  setOutlook("idle"); updateBrain(null); setCaption("Describe a problem in the chat and watch the agent fix it here.");
+  busy = true; setBusy(true);
+  try {
+    const data = await api("/api/reset", {});
+    await handleReply(data, my);
+  } catch (e) {
+    addAgent({ text: "I can't reach the helpdesk server. Start it with: python webapp.py", kind: "system" });
+  }
+  busy = false; setBusy(false);
+}
+(async function init() {
+  clock(); setInterval(clock, 30000);
+  const sc = $("#scenarios");
+  SCENARIOS.forEach(([label, text]) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = text;
+    b.addEventListener("click", () => send(text));
+    sc.appendChild(b);
+  });
+  $("#form").addEventListener("submit", (e) => { e.preventDefault(); send($("#input").value); });
+  $("#restart").addEventListener("click", () => { busy = false; start(); });
+  $("#auto").addEventListener("change", () => { if (!$("#auto").checked) { /* a pending auto-step falls back to the button */ } });
+  try { scenes = await (await fetch("/scenes.json")).json(); } catch (e) { scenes = {}; }
+  start();
+})();
+</script>
+</body>
+</html>
